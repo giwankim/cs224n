@@ -118,7 +118,7 @@ def negSamplingLossAndGradient(
 
     ### Please use your implementation of sigmoid in here.
     z = np.dot(outsideVectors, centerWordVec)
-    
+
     ### END YOUR CODE
 
     return loss, gradCenterVec, gradOutsideVecs
@@ -164,7 +164,21 @@ def skipgram(currentCenterWord, windowSize, outsideWords, word2Ind,
     gradOutsideVectors = np.zeros(outsideVectors.shape)
 
     ### YOUR CODE HERE (~8 Lines)
+    centerWordIdx = word2Ind[currentCenterWord]
+    centerWordVec = centerWordVectors[centerWordIdx]
+    outsideWordIndices = [word2Ind[o] for o in outsideWords]
 
+    for outsideWordIdx in outsideWordIndices:
+        loss_part, gradCenterVec_part, gradOutsideVecs_part = word2vecLossAndGradient(
+            centerWordVec,
+            outsideWordIdx,
+            outsideVectors,
+            dataset)
+
+        loss += loss_part
+        gradCenterVecs[centerWordIdx] += gradCenterVec_part
+        gradOutsideVectors += gradOutsideVecs_part
+        
     ### END YOUR CODE
     
     return loss, gradCenterVecs, gradOutsideVectors
