@@ -71,8 +71,29 @@ class ParserModel(nn.Module):
         ###     Initialization: https://pytorch.org/docs/stable/nn.init.html
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#dropout-layers
 
+        # self.embed_to_hidden_weight = nn.Parameter(torch.zeros((n_features * self.embed_size, hidden_size)))
+        # self.embed_to_hidden_bias = nn.Parameter(torch.zeros(hidden_size))
 
+        # self.dropout = nn.Dropout(p=dropout_prob)
 
+        # self.hidden_to_logits_weight = nn.Parameter(torch.zeros((hidden_size, n_classes)))
+        # self.hidden_to_logits_bias = nn.Parameter(torch.zeros(n_classes))
+
+        # for weights in (self.embed_to_hidden_weight, self.hidden_to_logits_weight):
+        #     nn.init.xavier_uniform_(weights)
+        # for bias in (self.embed_to_hidden_bias, self.hidden_to_logits_bias):
+        #     nn.init.uniform_(bias)
+
+        # refactor to torch.nn modules
+        self.embeddings_pretrained = nn.Embedding(n_features, self.embed_size)
+        self.embeddings_pretrained.weight = self.embeddings
+        self.embed_to_hidden = nn.Linear(self.n_features * self.embed_size, hidden_size)
+        self.dropout = nn.Dropout(p=dropout_prob)
+        self.hidden_to_logits = nn.Linear(hidden_size, n_classes)
+
+        for linear in (self.embed_to_hidden, self.hidden_to_logits):
+            nn.init.xavier_uniform_(linear.weight)
+            nn.init.uniform_(linear.bias)
 
         ### END YOUR CODE
 
@@ -104,7 +125,15 @@ class ParserModel(nn.Module):
         ###     Gather: https://pytorch.org/docs/stable/torch.html#torch.gather
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
 
+        # batch_size = w.shape[0]
+        # x = torch.zeros((batch_size, self.n_features * self.embed_size))
+        # for i in range(batch_size):
+        #     x[i] = torch.index_select(self.embeddings, 0, w[i]).view(-1)
 
+        # refactor
+        batch_size = w.shape[0]
+        x = self.embeddings_pretrained(w)
+        x = x.view(batch_size, -1)
 
         ### END YOUR CODE
         return x
@@ -141,7 +170,16 @@ class ParserModel(nn.Module):
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
 
+        # x = self.embedding_lookup(w)
+        # h = torch.matmul(x, self.embed_to_hidden_weight) + self.embed_to_hidden_bias
+        # h = self.dropout(h)
+        # logits = torch.matmul(h, self.hidden_to_logits_weight) + self.hidden_to_logits_bias
 
+        # refactor
+        x = self.embedding_lookup(w)
+        h = F.relu(self.embed_to_hidden(x))
+        h = self.dropout(h)
+        logits = self.hidden_to_logits(h)
         ### END YOUR CODE
         return logits
 
