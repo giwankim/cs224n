@@ -176,6 +176,7 @@ class ParserModel(nn.Module):
         # logits = torch.matmul(h, self.hidden_to_logits_weight) + self.hidden_to_logits_bias
 
         # refactor
+        w = w.cuda()
         x = self.embedding_lookup(w)
         h = F.relu(self.embed_to_hidden(x))
         h = self.dropout(h)
