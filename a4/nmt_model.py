@@ -178,11 +178,24 @@ class NMT(nn.Module):
         ###     Tensor Permute:
         ###         https://pytorch.org/docs/stable/tensors.html#torch.Tensor.permute
 
+        # word embedding of sentences
         X = self.model_embeddings.source(source_padded)
         X = pack_padded_sequence(X, source_lengths)
-        enc_hiddens, (last_hidden, last_cell) = self.encoder(X)
-        enc_hiddens = pad_packed_sequence(enc_hiddens)
 
+        # encoder outputs
+        enc_hiddens, (last_hidden, last_cell) = self.encoder(X)
+        enc_hiddens, sequence_lengths = pad_packed_sequence(enc_hiddens)
+        enc_hiddens = enc_hiddens.permute(1, 0, 2)
+
+        # linear projections of last_hidden
+        last_hidden = torch.cat((last_hidden[0], last_hidden[1]), dim=1)
+        init_decoder_hidden = self.h_projection(last_hidden)
+
+        # linear projection of last_cell
+        last_cell = torch.cat((last_cell[0], last_cell[1]), dim=1)
+        init_decoder_cell = self.c_projection(last_cell)
+
+        dec_init_state = (init_decoder_hidden, init_decoder_cell)
         ### END YOUR CODE
 
         return enc_hiddens, dec_init_state
