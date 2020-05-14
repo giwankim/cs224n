@@ -216,7 +216,7 @@ class NMT(nn.Module):
         @returns combined_outputs (Tensor): combined output tensor  (tgt_len, b,  h), where
                                         tgt_len = maximum target sentence length, b = batch_size,  h = hidden size
         """
-        # Chop of the <END> token for max length sentences.
+        # Chop off the <END> token for max length sentences.
         target_padded = target_padded[:-1]
 
         # Initialize the decoder state (hidden and cell)
@@ -265,10 +265,30 @@ class NMT(nn.Module):
         ###     Tensor Stacking:
         ###         https://pytorch.org/docs/stable/torch.html#torch.stack
 
+        enc_hiddens_proj = self.att_projection(enc_hiddens)  # (b, src_len, h)
 
+        # target embeddings
+        Y = self.model_embeddings.target(target_padded)  # (tgt_len, b, e)
 
+        # concatenate target embeddings with previous output
+        for Y_t in torch.split(Y, 1, dim=0):
+            Y_t = Y_t.squeeze(dim=0)  # (b, e)
+            Ybar_t = torch.cat((Y_t, o_prev), dim=1)  # (b, e + h)
 
+            # compute decoder's next states and combined-output vector
+            dec_state, o_t, e_t = self.step(
+                Ybar_t,
+                dec_state,
+                enc_hiddens,
+                enc_hiddens_proj,
+                enc_masks
+            )
 
+            combined_outputs.append(o_t)
+            o_prev = o_t
+
+        # reshape list of length tgt_len of (b, h) tensors, to a single tensor of shape (tgt_len, b,h)
+        combined_outputs = torch.stack(combined_outputs, dim=0)
 
         ### END YOUR CODE
 
