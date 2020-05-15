@@ -347,6 +347,13 @@ class NMT(nn.Module):
         ###     Tensor Squeeze:
         ###         https://pytorch.org/docs/stable/torch.html#torch.squeeze
 
+        # apply the decoder
+        dec_state = self.decoder(Ybar_t, dec_state)
+        dec_hidden, dec_cell = dec_state  # (b, h)
+
+        # compute attention scores
+        e_t = torch.bmm(enc_hiddens_proj, dec_hidden.unsqueeze(dim=-1))
+        e_t = e_t.squeeze(dim=-1)  # (b, src_len)
 
         ### END YOUR CODE
 
@@ -381,6 +388,18 @@ class NMT(nn.Module):
         ###     Tanh:
         ###         https://pytorch.org/docs/stable/torch.html#torch.tanh
 
+        # attention distribution
+        alpha_t = F.softmax(e_t, dim=1)  # (b, src_len)
+
+        # attention output
+        a_t = (alpha_t.unsqueeze(dim=1)
+                      .bmm(enc_hiddens)
+                      .squeeze(dim=1))  # (b, 2h)
+        
+        # compute combined-output vector
+        U_t = torch.cat((a_t, dec_hidden), dim=1)  # (b, 3h)
+        V_t = self.combined_output_projection(U_t)  # (b, h)
+        O_t = self.dropout(torch.tanh(V_t))
 
         ### END YOUR CODE
 
