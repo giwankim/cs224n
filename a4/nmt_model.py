@@ -397,7 +397,7 @@ class NMT(nn.Module):
                       .squeeze(dim=1))  # (b, 2h)
         
         # compute combined-output vector
-        U_t = torch.cat((a_t, dec_hidden), dim=1)  # (b, 3h)
+        U_t = torch.cat((a_t, dec_hidden), dim=1)   # (b, 3h)
         V_t = self.combined_output_projection(U_t)  # (b, h)
         O_t = self.dropout(torch.tanh(V_t))
 
