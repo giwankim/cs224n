@@ -8,6 +8,9 @@
 *.pth
 *.weights
 *.json
+*.bin
+*.bin.optim
+*en_es_data*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
