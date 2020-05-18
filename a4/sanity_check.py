@@ -228,7 +228,7 @@ def main():
         src_sents = src_sents
         tgt_sents = tgt_sents
         break
-    vocab = Vocab.load('./sanity_check_en_es_data/vocab_sanity_check.json') 
+    vocab = Vocab.load('./sanity_check_en_es_data/vocab_sanity_check.json')
 
     # Create NMT Model
     model = NMT(
