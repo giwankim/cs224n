@@ -36,7 +36,7 @@ class CNN(nn.Module):
 
         @param x (torch.Tensor): a tensor of minibatch of character-level word embeddings. It's shape is (batch_size, char_embed_size, max_word_length)
 
-        @returns x_conv_out (Tensor): a tensor of the result of convolution + max_pool of shape (batch_size, word_embed_size)
+r): a tensor of the result of convolution & max_pool of shape (batch_size, word_embed_size)        @returns x_conv_out (Tenso
         """
 
         # 1d convolution

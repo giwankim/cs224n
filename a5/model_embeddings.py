@@ -82,7 +82,7 @@ class ModelEmbeddings(nn.Module):
         x_conv_out = self.cnn(x_reshaped)       # (sentence_length * batch_size, word_embed_size)
 
         # highway layer and dropout
-        x_highway = self.highway(x_conv_out)    # (sentence_length * batch_size, word_embed_size)
+        x_highway = self.highway(x_conv_out)  # (sentence_length * batch_size, word_embed_size)
         output = F.dropout(x_highway, p=self.dropout_prob)
         output = output.view(sentence_length, batch_size, self.word_embed_size)  # (sentence_length, batch_size, word_embed_size)
 
