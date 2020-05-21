@@ -65,7 +65,22 @@ class CharDecoder(nn.Module):
         ###       - Carefully read the documentation for nn.CrossEntropyLoss and our handout to see what this criterion have already included:
         ###             https://pytorch.org/docs/stable/nn.html#crossentropyloss
 
-        
+        # Get input and target sequences from the character sequence
+        input_sequence = char_sequence[:-1]
+        target_sequence = char_sequence[1:]
+
+        # Get the scores from the character decoder
+        scores, _ = self.forward(input=input_sequence, dec_hidden=dec_hidden)
+
+        # cross-entropy loss
+        loss_fn = nn.CrossEntropyLoss(ignore_index=self.target_vocab.char_pad, reduction='sum')
+
+        scores = scores.view(-1, len(self.target_vocab.char2id))
+        target_sequence = target_sequence.view(-1)
+
+        loss = loss_fn(scores, target_sequence)
+
+        return loss
 
         ### END YOUR CODE
 
@@ -88,6 +103,29 @@ class CharDecoder(nn.Module):
         ###      - You may find torch.argmax or torch.argmax useful
         ###      - We use curly brackets as start-of-word and end-of-word characters. That is, use the character '{' for <START> and '}' for <END>.
         ###        Their indices are self.target_vocab.start_of_word and self.target_vocab.end_of_word, respectively.
+
+        # Get batch_size
+        batch_size = initialStates[0].shape[1]
+
+        start_of_word = self.target_vocab.start_of_word
+        end_of_word_char = self.target_vocab.id2char[self.target_vocab.end_of_word]
+
+        # Initial states h_0, c_0 for the word-level decoder
+        dec_hidden = initialStates
+
+        decoded_words = [""] * batch_size
+
+        current_chars = torch.tensor([start_of_word] * batch_size, device=device).unsqueeze(0)  # (1, batch_size)
+
+        for _ in range(max_length):
+            scores, dec_hidden = self.forward(current_chars, dec_hidden=dec_hidden)  # scores has shape (1, batch_size, vocab_size)
+            current_chars = scores.argmax(dim=-1)  # (1, batch_size)
+            for i, char_index in enumerate(current_chars.squeeze(0)):
+                decoded_words[i] += self.target_vocab.id2char[char_index.item()]
+        
+        decoded_words = [decoded_word[:decoded_word.find(end_of_word_char)] for decoded_word in decoded_words]
+
+        return decoded_words
 
         ### END YOUR CODE
 
