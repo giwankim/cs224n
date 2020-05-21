@@ -36,6 +36,17 @@ class CharDecoder(nn.Module):
         ### YOUR CODE HERE for part 2a
         ### TODO - Implement the forward pass of the character decoder.
 
+        # Lookup character embeddings
+        X = self.decoderCharEmb(input)  # (length, batch_size, char_embed_size)
+
+        # Forward pass through the character decoder
+        output, dec_hidden = self.charDecoder(X, dec_hidden)  # output shape (length, batch_size, hidden_size), tuple of two tensors of shape (1, batch_size, hidden_size)
+
+        # compute scores (logits) from the decoder output
+        scores = self.char_output_projection(output)  # (length, batch_size, vocab_size)
+
+        return scores, dec_hidden
+
         ### END YOUR CODE
 
     def train_forward(self, char_sequence, dec_hidden=None):
@@ -53,6 +64,8 @@ class CharDecoder(nn.Module):
         ###       - char_sequence corresponds to the sequence x_1 ... x_{n+1} (e.g., <START>,m,u,s,i,c,<END>). Read the handout about how to construct input and target sequence of CharDecoderLSTM.
         ###       - Carefully read the documentation for nn.CrossEntropyLoss and our handout to see what this criterion have already included:
         ###             https://pytorch.org/docs/stable/nn.html#crossentropyloss
+
+        
 
         ### END YOUR CODE
 
