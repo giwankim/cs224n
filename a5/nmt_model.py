@@ -51,39 +51,15 @@ class NMT(nn.Module):
 
         ### COPY OVER YOUR CODE FROM ASSIGNMENT 4
 
-        self.encoder = nn.LSTM(
-            input_size=word_embed_size,
-            hidden_size=hidden_size,
-            bidirectional=True)
+        self.encoder = nn.LSTM(word_embed_size, hidden_size, bidirectional=True)
+        self.decoder = nn.LSTMCell(word_embed_size + hidden_size, hidden_size)
 
-        self.decoder = nn.LSTMCell(
-            input_size=word_embed_size + hidden_size,
-            hidden_size=hidden_size)
-
-        self.h_projection = nn.Linear(
-            in_features=hidden_size * 2,
-            out_features=hidden_size,
-            bias=False)
-
-        self.c_projection = nn.Linear(
-            in_features=hidden_size * 2,
-            out_features=hidden_size,
-            bias=False)
-
-        self.att_projection = nn.Linear(
-            in_features=hidden_size * 2,
-            out_features=hidden_size,
-            bias=False)
-
-        self.combined_output_projection = nn.Linear(
-            in_features=hidden_size * 3,
-            out_features=hidden_size,
-            bias=False)
-
-        self.target_vocab_projection = nn.Linear(
-            in_features=hidden_size,
-            out_features=len(vocab.tgt),
-            bias=False)
+        self.h_projection = nn.Linear(hidden_size * 2, hidden_size, bias=False)
+        self.c_projection = nn.Linear(hidden_size * 2, hidden_size, bias=False)
+        self.att_projection = nn.Linear(hidden_size * 2, hidden_size, bias=False)
+        self.combined_output_projection = nn.Linear(hidden_size * 3, hidden_size, bias=False)
+        self.target_vocab_projection = nn.Linear(hidden_size, len(vocab.tgt), bias=False)
+        self.dropout = nn.Dropout(self.dropout_rate)
 
         ### END YOUR CODE FROM ASSIGNMENT 4
 
@@ -186,26 +162,17 @@ class NMT(nn.Module):
 
         # Lookup character-based word embeddings
         X = self.model_embeddings_source(source_padded)  # (max_sentence_length, b, max_word_length)
-        X = pack_padded_sequence(X, source_lengths)
+        X_packed = pack_padded_sequence(X, source_lengths)
 
         # Apply the LSTM-encoder; `enc_hiddens` has shape (max_sentence_length, b, h*2)
         # `last_hidden` and `last_cell` have shape (2, b, h)
-        enc_hiddens, (last_hidden, last_cell) = self.encoder(X)
-        enc_hiddens, sequence_lengths = pad_packed_sequence(enc_hiddens)
+        enc_hiddens, (last_hidden, last_cell) = self.encoder(X_packed)
+        enc_hiddens, _ = pad_packed_sequence(enc_hiddens)
         enc_hiddens = enc_hiddens.permute(1, 0, 2)  # (b, max_sentence_length, h*2)
 
-        # Compute decoder initial state
-
-        # Concat the two directions of last hidden states
-        last_hidden = torch.cat((last_hidden[0], last_hidden[1]), dim=1)  # (b, h*2)
-        # linear projections of last_hidden
-        init_decoder_hidden = self.h_projection(last_hidden)  # (h, )
-
-        # Concat the two directions of last cells
-        last_cell = torch.cat((last_cell[0], last_cell[1]), dim=1)
-        # linear projection of last_cell
-        init_decoder_cell = self.c_projection(last_cell)
-
+        ## Compute decoder initial state ##
+        init_decoder_hidden = self.h_projection(torch.cat((last_hidden[0], last_hidden[1]), dim=1))  # (h, )
+        init_decoder_cell = self.c_projection(torch.cat((last_cell[0], last_cell[1]), dim=1))
         dec_init_state = (init_decoder_hidden, init_decoder_cell)
 
         ### END YOUR CODE FROM ASSIGNMENT 4
@@ -247,25 +214,19 @@ class NMT(nn.Module):
         Y = self.model_embeddings_target(target_padded)      # (tgt_len, b, e)
 
         # Combine `Y_t` with combined-output vector from the previous timestep
-        for Y_t in torch.split(Y, 1, dim=0):
+        for Y_t in torch.split(Y, split_size_or_sections=1):
             Y_t = Y_t.squeeze(dim=0)                  # (b, e)
-            Ybar_t = torch.cat((Y_t, o_prev), dim=1)  # (b, e + h)
+            Ybar_t = torch.cat((Y_t, o_prev), dim=-1)  # (b, e + h)
 
             # Compute one step forward including the attention scores
             # `dec_state` has shape (b, h)
             # `o_t` has shape (b, h)
             # `e_t` has shape (b, src_len)
-            dec_state, o_t, e_t = self.step(
-                Ybar_t=Ybar_t,
-                dec_state=dec_state,
-                enc_hiddens=enc_hiddens,
-                enc_hiddens_proj=enc_hiddens_proj,
-                enc_masks=enc_masks)
-            
+            dec_state, o_t, e_t = self.step(Ybar_t, dec_state, enc_hiddens, enc_hiddens_proj, enc_masks)
             combined_outputs.append(o_t)
             o_prev = o_t
-        
-        combined_outputs = torch.stack(combined_outputs, dim=0)  # (tgt_len, b, h)
+
+        combined_outputs = torch.stack(combined_outputs)  # (tgt_len, b, h)
 
         ### END YOUR CODE FROM ASSIGNMENT 4
 
@@ -305,8 +266,7 @@ class NMT(nn.Module):
         dec_hidden, dec_cell = dec_state  # (b, h)
 
         # Compute attention scores
-        e_t = torch.bmm(enc_hiddens_proj, dec_hidden.unsqueeze(dim=-1))
-        e_t = e_t.squeeze(dim=-1)  # (b, src_len)
+        e_t = torch.bmm(enc_hiddens_proj, dec_hidden.unsqueeze(-1)).squeeze(-1)  # (b, src_len)
 
         ### END YOUR CODE FROM ASSIGNMENT 4
 
@@ -317,17 +277,15 @@ class NMT(nn.Module):
         ### COPY OVER YOUR CODE FROM ASSIGNMENT 4
 
         # Attention distribution
-        alpha_t = F.softmax(e_t, dim=1)  # (b, src_len)
+        alpha_t = F.softmax(e_t, dim=-1)  # (b, src_len)
 
         # Attention output
-        a_t = (alpha_t.unsqueeze(dim=1)
-                      .bmm(enc_hiddens)
-                      .squeeze(dim=1))  # (b, 2h)
+        a_t = torch.bmm(alpha_t.unsqueeze(1), enc_hiddens).squeeze(1)  # (b, 2h)
         
         # Compute combined-output vector
-        U_t = torch.cat((a_t, dec_hidden), dim=1)   # (b, 3h)
+        U_t = torch.cat([dec_hidden, a_t], dim=1)   # (b, 3h)
         V_t = self.combined_output_projection(U_t)  # (b, h)
-        O_t = F.dropout(torch.tanh(V_t), p=self.dropout_rate)
+        O_t = self.dropout(torch.tanh(V_t))
 
         ### END YOUR CODE FROM ASSIGNMENT 4
 
