@@ -7,6 +7,7 @@ sanity_check.py: sanity checks for assignment 5
 Usage:
     sanity_check.py 1e
     sanity_check.py 1f
+    sanity_check.py 1g
     sanity_check.py 1h
     sanity_check.py 2a
     sanity_check.py 2b
@@ -48,8 +49,9 @@ class DummyVocab():
         self.id2char = {id: char for char, id in self.char2id.items()}
         # self.char_pad = self.char2id['∏']
         # self.char_unk = self.char2id['Û']
+
         self.char_pad = self.char2id['<pad>']
-        self.char_unk = self.char2id['<unk>']
+        # self.char_unk = self.char2id['<unk>']
 
         self.start_of_word = self.char2id["{"]
         self.end_of_word = self.char2id["}"]
@@ -96,6 +98,9 @@ def question_1f_sanity_check():
     assert(list(output.size()) == output_expected_size)
     print("Sanity Check Passed for Question 1f: Highway layer!"), "output shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(output.size()))
     print("-"*80)
+
+def question_1g_sanity_check():
+    pass
 
 def question_1h_sanity_check(model):
     """ Sanity check for model_embeddings.py
@@ -198,6 +203,8 @@ def main():
         question_1e_sanity_check()
     elif args['1f']:
         question_1f_sanity_check()
+    elif args['1g']:
+        question_1g_sanity_check()
     elif args['1h']:
         question_1h_sanity_check(model)
     elif args['2a']:
