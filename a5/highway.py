@@ -22,6 +22,7 @@ class Highway(nn.Module):
         super(Highway, self).__init__()
         self.projection = nn.Linear(input_size, input_size)
         self.gate = nn.Linear(input_size, input_size)
+        nn.init.constant_(self.gate.bias, -2.0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ Takes a minibatch of input and compute the output of running the input through a highway layer.
