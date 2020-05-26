@@ -11,7 +11,6 @@ Michael Hahn <mhahn2@stanford.edu>
 """
 
 import torch.nn as nn
-import torch.nn.functional as F
 
 # Do not change these imports; your module names should be
 #   `CNN` in the file `cnn.py`
@@ -42,19 +41,20 @@ class ModelEmbeddings(nn.Module):
         ### YOUR CODE HERE for part 1h
 
         # constants
+        char_embed_size = 50
+        dropout_rate = 0.3
+        
         self.word_embed_size = word_embed_size
-        self.vocab = vocab
-        self.char_embed_size = 50
-        self.dropout_prob = 0.3
 
         # layers
-        self.char_embedding = nn.Embedding(
-                num_embeddings=len(self.vocab.char2id),
-                embedding_dim=self.char_embed_size,
-                padding_idx=self.vocab.char_pad)
-        self.cnn = CNN(char_embed_size=self.char_embed_size,
-                       word_embed_size=self.word_embed_size)
-        self.highway = Highway(input_size=self.word_embed_size)
+        self.char_embedding = nn.Embedding(len(vocab.char2id), char_embed_size,
+                                           padding_idx=vocab.char_pad)
+
+        self.cnn = CNN(char_embed_size, word_embed_size)
+
+        self.highway = Highway(input_size=word_embed_size)
+
+        self.dropout = nn.Dropout(p=dropout_rate)
 
         ### END YOUR CODE
 
@@ -69,22 +69,24 @@ class ModelEmbeddings(nn.Module):
         """
         ### YOUR CODE HERE for part 1h
 
-        sentence_length, batch_size, max_word_length = input.shape
+        # sentence_length, batch_size, max_word_length = input.shape
 
         # lookup character embedding
         x_emb = self.char_embedding(input)      # (sentence_length, batch_size, max_word_length, char_embed_size)
+
+        sentence_length, batch_size, max_word_length, char_embed_size = x_emb.shape
 
         # reshape 
         x_reshaped = x_emb.permute(0, 1, 3, 2)  # (sentence_length, batch_size, char_embed_size, max_word_length)
 
         # convolutional layer
-        x_reshaped = x_reshaped.view(sentence_length * batch_size, self.char_embed_size, max_word_length)
+        x_reshaped = x_reshaped.view(-1, char_embed_size, max_word_length)
         x_conv_out = self.cnn(x_reshaped)       # (sentence_length * batch_size, word_embed_size)
 
         # highway layer and dropout
-        x_highway = self.highway(x_conv_out)  # (sentence_length * batch_size, word_embed_size)
-        output = F.dropout(x_highway, p=self.dropout_prob)
-        output = output.view(sentence_length, batch_size, self.word_embed_size)  # (sentence_length, batch_size, word_embed_size)
+        x_highway = self.highway(x_conv_out)    # (sentence_length * batch_size, word_embed_size)
+        output = self.dropout(x_highway)
+        output = output.view(sentence_length, batch_size, -1)  # (sentence_length, batch_size, word_embed_size)
 
         return output
         ### END YOUR CODE
