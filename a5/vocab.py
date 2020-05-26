@@ -165,11 +165,11 @@ class VocabEntry(object):
         sents_indices = self.words2charindices(sents)
 
         # pad sentences
-        sents_padded = pad_sents_char(sents_indices, self.char_pad)  # (batch_size, max_sentence_length, max_word_length)
+        sents_padded = pad_sents_char(sents_indices, self.char_pad)  # (b, max_sent_len, max_word_len)
 
         # convert to torch tensor
-        sents_padded_var = torch.tensor(sents_padded, dtype=torch.long).permute(1, 0, 2)
-        sents_padded_var = sents_padded_var.to(device)
+        sents_padded_var = torch.tensor(sents_padded, dtype=torch.long, device=device)
+        sents_padded_var = sents_padded_var.permute(1, 0, 2)  # (max_sent_len, b, max_word_len)
 
         return sents_padded_var
         
