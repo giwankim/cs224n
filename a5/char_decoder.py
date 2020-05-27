@@ -39,8 +39,9 @@ class CharDecoder(nn.Module):
         # Lookup character embeddings
         X = self.decoderCharEmb(input)  # (length, batch_size, char_embed_size)
 
-        # Forward pass through the character decoder
-        output, dec_hidden = self.charDecoder(X, dec_hidden)  # output shape (length, batch_size, hidden_size), tuple of two tensors of shape (1, batch_size, hidden_size)
+        # output; shape (length, batch_size, hidden_size)
+        # dec_hidden; tuple of two tensors of shape (1, batch_size, hidden_size)
+        output, dec_hidden = self.charDecoder(X, dec_hidden)
 
         # compute scores (logits) from the decoder output
         scores = self.char_output_projection(output)  # (length, batch_size, vocab_size)
@@ -65,20 +66,17 @@ class CharDecoder(nn.Module):
         ###       - Carefully read the documentation for nn.CrossEntropyLoss and our handout to see what this criterion have already included:
         ###             https://pytorch.org/docs/stable/nn.html#crossentropyloss
 
-        # Get input and target sequences from the character sequence
+        # input and target sequences
         input_sequence = char_sequence[:-1]
         target_sequence = char_sequence[1:]
 
-        # Get the scores from the character decoder
-        scores, _ = self.forward(input=input_sequence, dec_hidden=dec_hidden)
+        # Forward pass
+        scores, _ = self.forward(input_sequence, dec_hidden)
 
-        # cross-entropy loss
-        loss_fn = nn.CrossEntropyLoss(ignore_index=self.target_vocab.char_pad, reduction='sum')
-
+        # Cross-entropy loss
         scores = scores.view(-1, len(self.target_vocab.char2id))
         target_sequence = target_sequence.view(-1)
-
-        loss = loss_fn(scores, target_sequence)
+        loss = nn.CrossEntropyLoss(ignore_index=self.target_vocab.char_pad, reduction='sum')(scores, target_sequence)
 
         return loss
 
@@ -104,13 +102,11 @@ class CharDecoder(nn.Module):
         ###      - We use curly brackets as start-of-word and end-of-word characters. That is, use the character '{' for <START> and '}' for <END>.
         ###        Their indices are self.target_vocab.start_of_word and self.target_vocab.end_of_word, respectively.
 
-        # Get batch_size
         batch_size = initialStates[0].shape[1]
-
         start_of_word = self.target_vocab.start_of_word
         end_of_word_char = self.target_vocab.id2char[self.target_vocab.end_of_word]
 
-        # Initial states h_0, c_0 for the word-level decoder
+        # Initial states, h_0, c_0 for the word-level decoder
         dec_hidden = initialStates
 
         decoded_words = [""] * batch_size

@@ -43,17 +43,12 @@ class ModelEmbeddings(nn.Module):
         # constants
         char_embed_size = 50
         dropout_rate = 0.3
-        
         self.word_embed_size = word_embed_size
 
         # layers
-        self.char_embedding = nn.Embedding(len(vocab.char2id), char_embed_size,
-                                           padding_idx=vocab.char_pad)
-
+        self.char_embedding = nn.Embedding(len(vocab.char2id), char_embed_size, padding_idx=vocab.char_pad)
         self.cnn = CNN(char_embed_size, word_embed_size)
-
         self.highway = Highway(input_size=word_embed_size)
-
         self.dropout = nn.Dropout(p=dropout_rate)
 
         ### END YOUR CODE
@@ -73,10 +68,9 @@ class ModelEmbeddings(nn.Module):
 
         # lookup character embedding
         x_emb = self.char_embedding(input)      # (sentence_length, batch_size, max_word_length, char_embed_size)
-
         sentence_length, batch_size, max_word_length, char_embed_size = x_emb.shape
 
-        # reshape 
+        # reshape
         x_reshaped = x_emb.permute(0, 1, 3, 2)  # (sentence_length, batch_size, char_embed_size, max_word_length)
 
         # convolutional layer
@@ -89,5 +83,6 @@ class ModelEmbeddings(nn.Module):
         output = output.view(sentence_length, batch_size, -1)  # (sentence_length, batch_size, word_embed_size)
 
         return output
+        
         ### END YOUR CODE
 
