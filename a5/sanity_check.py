@@ -30,6 +30,7 @@ from vocab import Vocab, VocabEntry
 from char_decoder import CharDecoder
 from nmt_model import NMT
 from highway import Highway
+from cnn import CNN
 
 import torch
 import torch.nn as nn
@@ -47,14 +48,25 @@ class DummyVocab():
     def __init__(self):
         self.char2id = json.load(open('./sanity_check_en_es_data/char_vocab_sanity_check.json', 'r'))
         self.id2char = {id: char for char, id in self.char2id.items()}
-        # self.char_pad = self.char2id['∏']
-        # self.char_unk = self.char2id['Û']
-
-        self.char_pad = self.char2id['<pad>']
-        # self.char_unk = self.char2id['<unk>']
-
+        self.char_pad = self.char2id['∏']
+        self.char_unk = self.char2id['Û']
         self.start_of_word = self.char2id["{"]
         self.end_of_word = self.char2id["}"]
+
+def reinitialize_layers(model):
+    """ Reinitialize the Layer Weights for Sanity Checks.
+    """
+    def init_weights(m):
+        if type(m) == nn.Linear:
+            m.weight.data.fill_(0.3)
+            if m.bias is not None:
+                m.bias.data.fill_(0.1)
+        elif type(m) == nn.Embedding:
+            m.weight.data.fill_(0.15)
+        elif type(m) == nn.Dropout:
+            nn.Dropout(DROPOUT_RATE)
+    with torch.no_grad():
+        model.apply(init_weights)
 
 def question_1e_sanity_check():
     """ Sanity check for to_input_tensor_char() function.
@@ -72,35 +84,43 @@ def question_1e_sanity_check():
     output = vocabEntry.to_input_tensor_char(sentences, 'cpu')
     output_expected_size = [sentence_length, BATCH_SIZE, word_length]
     assert list(output.size()) == output_expected_size, "output shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(output.size()))
-
     print("Sanity Check Passed for Question 1e: To Input Tensor Char!")
     print("-"*80)
 
-def question_1f_sanity_check():
+def question_1f_sanity_check(highway):
     """ Sanity check for highway.py
         basic shape check
     """
     print ("-"*80)
     print("Running Sanity Check for Question 1f: Highway layer")
     print ("-"*80)
-
-    BATCH_SIZE = 5
-    input_size = 12
-    inpt = torch.zeros(BATCH_SIZE, input_size)
-    highway = Highway(input_size=input_size)
+    inpt = torch.zeros(BATCH_SIZE, EMBED_SIZE, dtype=torch.long)
     with torch.no_grad():
-        output = highway(inpt)
-        proj = highway.projection(inpt)
-        gate = highway.gate(inpt)
-    output_expected_size = [BATCH_SIZE, input_size]
-    assert(list(proj.size()) == output_expected_size)
-    assert(list(gate.size()) == output_expected_size)
-    assert(list(output.size()) == output_expected_size)
-    print("Sanity Check Passed for Question 1f: Highway layer!"), "output shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(output.size()))
+        x_highway = highway(inpt)
+        x_proj = nn.functional.relu(highway.projection(inpt))
+        x_gate = torch.sigmoid(highway.gate(inpt))
+    output_expected_size = [BATCH_SIZE, EMBED_SIZE]
+    assert(list(x_proj.size()) == output_expected_size), "Projection shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(x_proj.size()))
+    assert(list(x_gate.size()) == output_expected_size), "Gate shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(x_gate.size()))
+    assert(list(x_highway.size()) == output_expected_size), "Output shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(x_highway.size()))
+    print("Sanity Check Passed for Question 1f: Highway layer!")
     print("-"*80)
 
-def question_1g_sanity_check():
-    pass
+def question_1g_sanity_check(cnn, char_vocab):
+    """ Sanity check for cnn.py
+        basic shape check
+    """
+    print ("-"*80)
+    print("Running Sanity Check for Question 1g: Convolutional layer")
+    print ("-"*80)
+    max_word_length = 21
+    inpt = torch.zeros(BATCH_SIZE, len(char_vocab.char2id), max_word_length)
+    with torch.no_grad():
+        output = cnn(inpt)
+    output_expected_size = [BATCH_SIZE, EMBED_SIZE]
+    assert(list(output.size()) == output_expected_size), "output shape is incorrect: it should be:\n {} but is:\n{}".format(output_expected_size, list(output.size()))
+    print("Sanity Check Passed for Question 1g: Convolutional layer!")
+    print("-"*80)
 
 def question_1h_sanity_check(model):
     """ Sanity check for model_embeddings.py
@@ -167,6 +187,7 @@ def question_2c_sanity_check(decoder):
     print("Sanity Check Passed for Question 2c: CharDecoder.decode_greedy()!")
     print("-"*80)
 
+
 def main():
     """ Main func.
     """
@@ -199,12 +220,18 @@ def main():
         char_embedding_size=EMBED_SIZE,
         target_vocab=char_vocab)
 
+    # Create Highway layer
+    highway = Highway(EMBED_SIZE)
+
+    # Create CNN
+    cnn = CNN(len(char_vocab.char2id), EMBED_SIZE)
+
     if args['1e']:
         question_1e_sanity_check()
     elif args['1f']:
-        question_1f_sanity_check()
+        question_1f_sanity_check(highway)
     elif args['1g']:
-        question_1g_sanity_check()
+        question_1g_sanity_check(cnn, char_vocab)
     elif args['1h']:
         question_1h_sanity_check(model)
     elif args['2a']:

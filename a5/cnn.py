@@ -27,10 +27,7 @@ class CNN(nn.Module):
         """
 
         super(CNN, self).__init__()
-        self.conv = nn.Conv1d(in_channels=char_embed_size,
-                              out_channels=word_embed_size,
-                              kernel_size=kernel_size,
-                              padding=padding)
+        self.conv = nn.Conv1d(char_embed_size, word_embed_size, kernel_size=kernel_size, padding=padding)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ Takes a minibatch of character embeddings of source sentences and computes convolutions in the temporal direction.
@@ -43,10 +40,10 @@ class CNN(nn.Module):
         """
 
         # 1d convolution
-        x_conv = F.relu(self.conv(x))  # (batch_size, word_embed_size, max_word_length - kernel_size + 1 + 2*padding)
-
-        # max pool
+        x_conv = F.relu(self.conv(x))  # (batch_size, word_embed_size, num_windows)
         num_windows = x_conv.shape[-1]
+
+        # Max pool
         x_conv_out = F.max_pool1d(x_conv, kernel_size=num_windows)  # (batch_size, word_embed_size, 1)
         x_conv_out = x_conv_out.squeeze(-1)                         # (batch_size, word_embed_size)
 
